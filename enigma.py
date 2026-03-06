@@ -3,12 +3,11 @@ import plotly.graph_objects as go
 import random
 import string
 
-st.set_page_config(page_title="Enigma : 3 Rotors Intégrés", layout="wide")
+st.set_page_config(page_title="Enigma : Borniers Vertical", layout="wide")
 
-st.title("🧩 Cheminement à travers les 3 Rotors")
-st.write("Le signal descend du Rotor 1 (haut) vers le Rotor 3 (bas). Les alphabets intermédiaires sont partagés.")
+st.title("🔌 Circuit Intégré Enigma")
+st.write("Le signal traverse chaque lettre de haut en bas avant de repartir vers le rotor suivant.")
 
-# --- Logique des Dérangements ---
 def generate_derangement(n):
     indices = list(range(n))
     while True:
@@ -19,72 +18,75 @@ def generate_derangement(n):
 alphabet = list(string.ascii_uppercase)
 n = len(alphabet)
 
-# Initialisation des câblages
 if 'r1' not in st.session_state:
     st.session_state.r1 = generate_derangement(n)
     st.session_state.r2 = generate_derangement(n)
     st.session_state.r3 = generate_derangement(n)
 
-if st.button('🔄 Recâbler les 3 étages'):
+if st.button('🔄 Recâbler les rotors'):
     st.session_state.r1 = generate_derangement(n)
     st.session_state.r2 = generate_derangement(n)
     st.session_state.r3 = generate_derangement(n)
     st.rerun()
 
-# --- Construction du Schéma Unique ---
-def plot_triple_rotor():
+def plot_triple_rotor_clean():
     fig = go.Figure()
-    offset = 0.15
     colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
     
-    # On définit 4 niveaux de Y (3 étages)
-    # y=3 (Haut R1), y=2 (Bas R1 / Haut R2), y=1 (Bas R2 / Haut R3), y=0 (Bas R3)
-    levels = [3, 2, 1, 0]
+    # On définit les centres des alphabets (Y)
+    # Les rotors se situent ENTRE ces niveaux
+    levels = [3, 2, 1, 0] 
     wirings = [st.session_state.r1, st.session_state.r2, st.session_state.r3]
-    labels = ["ROTOR I", "ROTOR II", "ROTOR III"]
 
     for stage in range(3):
         current_wiring = wirings[stage]
-        y_top = levels[stage]
-        y_bottom = levels[stage + 1]
+        y_top_limit = levels[stage] - 0.15     # Sortie du bornier du haut
+        y_bottom_limit = levels[stage + 1] + 0.15 # Entrée du bornier du bas
         
-        # Titre de l'étage
-        fig.add_annotation(x=-2, y=(y_top + y_bottom)/2, text=labels[stage], showarrow=False, textangle=-90, font=dict(size=16, color="grey"))
-
         for i in range(n):
             target = current_wiring[i]
             color = colors[i % len(colors)]
-            # Niveau horizontal interne à l'étage pour éviter les collisions
-            h_level = y_bottom + 0.2 + (i * (0.6 / n))
+            # Palier horizontal unique pour ce fil dans ce rotor
+            h_level = y_bottom_limit + 0.1 + (i * (0.5 / n))
 
-            # Tracé du fil (Entrée décalée -> Palier -> Sortie décalée)
+            # TRACÉ DU FIL ENTRE LES BORNES
+            # Le fil part du bas de la lettre i (y_top_limit) 
+            # et arrive au haut de la lettre target (y_bottom_limit)
             fig.add_trace(go.Scatter(
-                x=[i - offset, i - offset, target + offset, target + offset],
-                y=[y_top, h_level, h_level, y_bottom],
+                x=[i, i, target, target],
+                y=[y_top_limit, h_level, h_level, y_bottom_limit],
                 mode='lines',
                 line=dict(color=color, width=1.5),
                 hoverinfo='skip',
                 showlegend=False
             ))
 
-    # Affichage des alphabets aux interfaces
+    # AFFICHAGE DES ALPHABETS ET TRAVERSÉE VERTICALE
     for y_val in levels:
         for i in range(n):
+            # Petit trait vertical qui "traverse" la lettre pour montrer le contact
             fig.add_trace(go.Scatter(
-                x=[i], y=[y_val + (0.1 if y_val == 3 else -0.1)],
+                x=[i, i], y=[y_val - 0.15, y_val + 0.15],
+                mode='lines',
+                line=dict(color='black', width=1),
+                hoverinfo='skip', showlegend=False
+            ))
+            # La lettre elle-même
+            fig.add_trace(go.Scatter(
+                x=[i], y=[y_val],
                 text=[alphabet[i]],
                 mode='text',
-                textfont=dict(size=12, family="Courier New Bold", color="black"),
+                textfont=dict(size=13, family="Courier New Bold", color="black"),
                 showlegend=False
             ))
 
     fig.update_layout(
-        height=800,
-        margin=dict(l=50, r=20, t=20, b=20),
-        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-3, 27]),
+        height=850,
+        margin=dict(l=50, r=50, t=20, b=20),
+        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-1, 26]),
         yaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-0.5, 3.5]),
         plot_bgcolor='white',
     )
     return fig
 
-st.plotly_chart(plot_triple_rotor(), use_container_width=True)
+st.plotly_chart(plot_triple_rotor_clean(), use_container_width=True)
