@@ -3,7 +3,7 @@ import plotly.graph_objects as go
 import random
 import string
 
-st.set_page_config(page_title="Enigma : Visualisation du Flux", layout="wide")
+st.set_page_config(page_title="Enigma : Flux Coloré", layout="wide")
 
 st.markdown("""
     <style>
@@ -53,8 +53,11 @@ if st.session_state.pressed_key:
     idx3 = st.session_state.r3[idx2]
     path = [idx0, idx1, idx2, idx3]
 
-def plot_enigma_path():
+def plot_enigma_vivid():
     fig = go.Figure()
+    # Palette de couleurs pour les fils non-actifs
+    colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#bcbd22', '#17becf', '#fb9a99']
+    
     levels = [2.1, 1.4, 0.7, 0]
     wirings = [st.session_state.r1, st.session_state.r2, st.session_state.r3]
     dx = 0.15 
@@ -65,13 +68,18 @@ def plot_enigma_path():
         
         for i in range(n):
             target = current_wiring[i]
-            # Vérification si ce fil fait partie du chemin actif
             is_on_path = (len(path) > 0 and path[stage] == i)
             
-            color = "red" if is_on_path else "rgba(200, 200, 200, 0.3)"
-            width = 4 if is_on_path else 1
-            opacity = 1.0 if is_on_path else 0.4
-            
+            # Paramètres visuels différenciés
+            if is_on_path:
+                color = "red"
+                width = 5  # Très épais
+                opacity = 1.0
+            else:
+                color = colors[i % len(colors)]
+                width = 1  # Fin
+                opacity = 0.4 # Visible mais en retrait
+
             h_level = y_end + 0.05 + (i * (0.15 / n))
             fig.add_trace(go.Scatter(
                 x=[i - dx, i - dx, target + dx, target + dx],
@@ -80,13 +88,13 @@ def plot_enigma_path():
                 opacity=opacity, hoverinfo='skip', showlegend=False
             ))
 
-    # Dessin des bornes
+    # Dessin des bornes (Lettres)
     for l_idx, y_val in enumerate(levels):
         for i in range(n):
-            # Surbrillance de la lettre si elle est dans le chemin
             is_active_letter = (len(path) > 0 and path[l_idx] == i)
-            b_color = "red" if is_active_letter else "black"
-            b_width = 2 if is_active_letter else 1
+            # Bordure rouge si active, sinon grise
+            b_color = "red" if is_active_letter else "#888"
+            b_width = 3 if is_active_letter else 1
             f_color = "red" if is_active_letter else "black"
 
             fig.add_trace(go.Scatter(
@@ -97,14 +105,14 @@ def plot_enigma_path():
             ))
 
     fig.update_layout(
-        height=500, margin=dict(l=10, r=10, t=0, b=0),
+        height=500, margin=dict(l=10, r=10, t=10, b=10),
         xaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-1, 26]),
         yaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-0.2, 2.3]),
         plot_bgcolor='white'
     )
     return fig
 
-st.plotly_chart(plot_enigma_path(), use_container_width=True)
+st.plotly_chart(plot_enigma_vivid(), use_container_width=True)
 
 if st.session_state.pressed_key:
-    st.success(f"Résultat : La lettre **{st.session_state.pressed_key}** devient **{alphabet[path[3]]}**")
+    st.success(f"Signal : **{st.session_state.pressed_key}** ➔ Rotor1 ➔ Rotor2 ➔ Rotor3 ➔ **{alphabet[path[3]]}**")
