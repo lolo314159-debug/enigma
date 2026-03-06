@@ -3,13 +3,12 @@ import plotly.graph_objects as go
 import random
 import string
 
-st.set_page_config(page_title="Enigma : Les 3 Rotors", layout="wide")
+st.set_page_config(page_title="Enigma : 3 Rotors Intégrés", layout="wide")
 
-## Titre et Configuration
-st.title("⚙️ Système à Trois Rotors Enigma")
-st.write("Le signal traverse trois rotors successivement. Chaque rotor est un dérangement unique.")
+st.title("🧩 Cheminement à travers les 3 Rotors")
+st.write("Le signal descend du Rotor 1 (haut) vers le Rotor 3 (bas). Les alphabets intermédiaires sont partagés.")
 
-# --- Logique de calcul ---
+# --- Logique des Dérangements ---
 def generate_derangement(n):
     indices = list(range(n))
     while True:
@@ -20,65 +19,29 @@ def generate_derangement(n):
 alphabet = list(string.ascii_uppercase)
 n = len(alphabet)
 
-# Initialisation des 3 rotors
-for key in ['r1', 'r2', 'r3']:
-    if key not in st.session_state:
-        st.session_state[key] = generate_derangement(n)
+# Initialisation des câblages
+if 'r1' not in st.session_state:
+    st.session_state.r1 = generate_derangement(n)
+    st.session_state.r2 = generate_derangement(n)
+    st.session_state.r3 = generate_derangement(n)
 
-if st.button('🔄 Recâbler tous les rotors'):
-    for key in ['r1', 'r2', 'r3']:
-        st.session_state[key] = generate_derangement(n)
+if st.button('🔄 Recâbler les 3 étages'):
+    st.session_state.r1 = generate_derangement(n)
+    st.session_state.r2 = generate_derangement(n)
+    st.session_state.r3 = generate_derangement(n)
     st.rerun()
 
-# --- Fonction de dessin ---
-def draw_rotor(wiring, label, color_seed):
+# --- Construction du Schéma Unique ---
+def plot_triple_rotor():
     fig = go.Figure()
     offset = 0.15
-    # Couleurs variées basées sur la seed
-    base_colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#17becf']
+    colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
     
-    for i in range(n):
-        target = wiring[i]
-        # On fait varier la couleur selon la lettre d'entrée
-        color = base_colors[(i + color_seed) % len(base_colors)]
-        h_level = 0.2 + (i * (0.6 / n))
-        
-        # Tracé orthogonal
-        fig.add_trace(go.Scatter(
-            x=[i - offset, i - offset, target + offset, target + offset],
-            y=[1, h_level, h_level, 0],
-            mode='lines',
-            line=dict(color=color, width=1.5),
-            hoverinfo='skip',
-            showlegend=False
-        ))
+    # On définit 4 niveaux de Y (3 étages)
+    # y=3 (Haut R1), y=2 (Bas R1 / Haut R2), y=1 (Bas R2 / Haut R3), y=0 (Bas R3)
+    levels = [3, 2, 1, 0]
+    wirings = [st.session_state.r1, st.session_state.r2, st.session_state.r3]
+    labels = ["ROTOR I", "ROTOR II", "ROTOR III"]
 
-        # Lettres (uniquement si c'est le haut ou le bas pour ne pas surcharger)
-        fig.add_trace(go.Scatter(
-            x=[i], y=[1.1], text=[alphabet[i]], mode='text',
-            textfont=dict(size=12, family="Courier New Bold"), showlegend=False
-        ))
-        fig.add_trace(go.Scatter(
-            x=[i], y=[-0.1], text=[alphabet[i]], mode='text',
-            textfont=dict(size=12, family="Courier New Bold"), showlegend=False
-        ))
-
-    fig.update_layout(
-        title=f"<b>{label}</b>",
-        height=350,
-        margin=dict(l=20, r=20, t=40, b=20),
-        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-1, 26]),
-        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-0.2, 1.2]),
-        plot_bgcolor='white',
-    )
-    return fig
-
-# --- Affichage vertical ---
-st.subheader("Rotor I (Entrée Rapide)")
-st.plotly_chart(draw_rotor(st.session_state.r1, "Rotor 1", 0), use_container_width=True)
-
-st.subheader("Rotor II (Intermédiaire)")
-st.plotly_chart(draw_rotor(st.session_state.r2, "Rotor 2", 5), use_container_width=True)
-
-st.subheader("Rotor III (Sortie lente)")
-st.plotly_chart(draw_rotor(st.session_state.r3, "Rotor 3", 10), use_container_width=True)
+    for stage in range(3):
+        current_wiring = wirings[stage]
