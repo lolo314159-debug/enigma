@@ -4,8 +4,38 @@ import random
 import string
 
 st.set_page_config(page_title="Enigma Compact", layout="wide")
-
 st.title("🔌 Circuit Enigma Compact")
+
+# --- Configuration du Clavier AZERTY ---
+st.subheader("⌨️ Clavier d'entrée")
+
+# Définition des rangées AZERTY
+rows = [
+    ["A", "Z", "E", "R", "T", "Y", "U", "I", "O", "P"],
+    ["Q", "S", "D", "F", "G", "H", "J", "K", "L", "M"],
+    ["W", "X", "C", "V", "B", "N"]
+]
+
+# Initialisation de la touche pressée dans le session_state
+if 'pressed_key' not in st.session_state:
+    st.session_state.pressed_key = None
+
+# Affichage du clavier
+for row in rows:
+    # Création de colonnes centrées pour le clavier
+    cols = st.columns(len(row))
+    for i, key in enumerate(row):
+        if cols[i].button(key, key=f"btn_{key}", use_container_width=True):
+            st.session_state.pressed_key = key
+
+# Affichage de la touche active (optionnel)
+if st.session_state.pressed_key:
+    st.markdown(f"**Touche pressée :** :blue[{st.session_state.pressed_key}]")
+else:
+    st.info("Cliquez sur une touche pour simuler l'entrée du signal.")
+
+st.divider()
+
 
 # --- Logique de dérangement ---
 def generate_derangement(n):
