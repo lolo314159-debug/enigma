@@ -5,55 +5,24 @@ import string
 
 st.set_page_config(page_title="Enigma Compact", layout="wide")
 
-st.title("🔌 Circuit Enigma Compact")
-
-# --- Style CSS pour compacter les boutons ---
+# CSS pour un clavier ultra-compact
 st.markdown("""
     <style>
     div.stButton > button {
-        padding: 5px 0px !important;
-        font-size: 14px !important;
-        height: 2em !important;
+        padding: 0px !important;
+        font-size: 12px !important;
+        height: 25px !important;
+        min-width: 25px !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
-st.write("### ⌨️ Clavier")
-
-# Définition des rangées AZERTY
-rows = [
-    ["A", "Z", "E", "R", "T", "Y", "U", "I", "O", "P"],
-    ["Q", "S", "D", "F", "G", "H", "J", "K", "L", "M"],
-    ["W", "X", "C", "V", "B", "N"]
-]
-
-# On crée un conteneur plus étroit pour réduire la taille globale
-with st.container():
-    col_pad_left, clavier_corps, col_pad_right = st.columns([1, 4, 1])
-    
-    with clavier_corps:
-        for r_idx, row in enumerate(rows):
-            # On crée toujours 10 colonnes pour garder la même largeur de touche
-            cols = st.columns(10) 
-            
-            # Décalage visuel pour les rangées 2 et 3 (optionnel)
-            start_col = 0 if r_idx == 0 else (1 if r_idx == 1 else 2)
-            
-            for i, key in enumerate(row):
-                # On place les touches dans les colonnes correspondantes
-                with cols[start_col + i]:
-                    if st.button(key, key=f"k_{key}", use_container_width=True):
-                        st.session_state.pressed_key = key
-                        st.rerun()
-
-st.divider()
-# --- Logique de dérangement ---
+# --- Logique Enigma ---
 def generate_derangement(n):
     indices = list(range(n))
     while True:
         random.shuffle(indices)
-        if all(indices[i] != i for i in range(n)):
-            return indices
+        if all(indices[i] != i for i in range(n)): return indices
 
 alphabet = list(string.ascii_uppercase)
 n = len(alphabet)
@@ -62,59 +31,75 @@ if 'r1' not in st.session_state:
     st.session_state.r1 = generate_derangement(n)
     st.session_state.r2 = generate_derangement(n)
     st.session_state.r3 = generate_derangement(n)
+    st.session_state.pressed_key = None
 
-if st.button('🔄 Recâbler'):
+# --- Clavier AZERTY Compact ---
+st.write("### ⌨️ Clavier")
+rows = [
+    ["A", "Z", "E", "R", "T", "Y", "U", "I", "O", "P"],
+    ["Q", "S", "D", "F", "G", "H", "J", "K", "L", "M"],
+    ["W", "X", "C", "V", "B", "N"]
+]
+
+# On centre le clavier
+_, clavier_col, _ = st.columns([1, 2, 1])
+with clavier_col:
+    for row in rows:
+        cols = st.columns(10) # Toujours 10 colonnes pour l'alignement
+        for i, key in enumerate(row):
+            with cols[i]: # On remplit à partir de la gauche
+                if st.button(key, key=f"k_{key}", use_container_width=True):
+                    st.session_state.pressed_key = key
+
+if st.button('🔄 Reset Rotors'):
     for r in ['r1', 'r2', 'r3']: st.session_state[r] = generate_derangement(n)
     st.rerun()
 
-def plot_enigma_compact():
+# --- Schéma Compact ---
+def plot_enigma():
     fig = go.Figure()
     colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#bcbd22', '#17becf', '#fb9a99']
     
-    # Réduction de l'échelle Y (0.8 unité entre chaque alphabet au lieu de 1.0)
-    levels = [2.4, 1.6, 0.8, 0]
+    levels = [2.1, 1.4, 0.7, 0] # Espacement vertical réduit
     wirings = [st.session_state.r1, st.session_state.r2, st.session_state.r3]
     dx = 0.15 
 
     for stage in range(3):
         current_wiring = wirings[stage]
-        # On réduit l'espace mort (padding) autour des lettres
-        y_start = levels[stage] - 0.12
-        y_end = levels[stage+1] + 0.12
+        y_start, y_end = levels[stage] - 0.1, levels[stage+1] + 0.1
         
         for i in range(n):
             target = current_wiring[i]
+            # Couleur vive si c'est la lettre pressée, sinon gris clair
+            is_active = (stage == 0 and alphabet[i] == st.session_state.pressed_key)
+            # (Note: La logique de suivi du chemin sur 3 rotors peut être ajoutée ensuite)
             color = colors[i % len(colors)]
-            # Palier horizontal resserré
-            h_level = y_end + 0.05 + (i * (0.2 / n))
-
+            
+            h_level = y_end + 0.05 + (i * (0.15 / n))
             fig.add_trace(go.Scatter(
                 x=[i - dx, i - dx, target + dx, target + dx],
                 y=[y_start, h_level, h_level, y_end],
-                mode='lines',
-                line=dict(color=color, width=1.5),
+                mode='lines', line=dict(color=color, width=1.5),
                 hoverinfo='skip', showlegend=False
             ))
 
-    # Dessin des bornes (lettres)
+    # Bornes (Lettres)
     for y_val in levels:
         for i in range(n):
             fig.add_trace(go.Scatter(
-                x=[i], y=[y_val],
-                mode='markers+text',
-                marker=dict(symbol='square', size=18, color='white', line=dict(color='#444', width=1)),
-                text=alphabet[i],
-                textfont=dict(size=10, family="Arial Black", color="black"),
+                x=[i], y=[y_val], mode='markers+text',
+                marker=dict(symbol='square', size=16, color='white', line=dict(color='#666', width=1)),
+                text=alphabet[i], textfont=dict(size=9, family="Arial Black"),
                 showlegend=False
             ))
 
     fig.update_layout(
-        height=550, # Hauteur réduite pour tenir sur un écran standard
-        margin=dict(l=20, r=20, t=10, b=10),
+        height=450, # Très compact
+        margin=dict(l=10, r=10, t=0, b=0),
         xaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-1, 26]),
-        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-0.3, 2.7]),
-        plot_bgcolor='white',
+        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-0.2, 2.3]),
+        plot_bgcolor='white'
     )
     return fig
 
-st.plotly_chart(plot_enigma_compact(), use_container_width=True)
+st.plotly_chart(plot_enigma(), use_container_width=True)
