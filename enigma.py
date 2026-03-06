@@ -3,12 +3,12 @@ import plotly.graph_objects as go
 import random
 import string
 
-st.set_page_config(page_title="Câblage Enigma Orthogonal", layout="wide")
+st.set_page_config(page_title="Rotor Enigma - Fils décalés", layout="wide")
 
-st.title("🔌 Câblage Interne du Rotor")
-st.write("Visualisation par paliers : chaque lettre possède son propre 'étage' horizontal pour éviter les collisions visuelles.")
+st.title("🔌 Câblage avec Décalage Anti-Superposition")
+st.write("Les lignes verticales d'entrée et de sortie sont décalées pour éviter toute confusion visuelle.")
 
-# 1. Initialisation de l'alphabet et de la permutation
+# 1. Configuration de base
 alphabet = list(string.ascii_uppercase)
 n = len(alphabet)
 
@@ -17,56 +17,53 @@ if 'wiring' not in st.session_state:
     random.shuffle(indices)
     st.session_state.wiring = indices
 
-if st.button('🔄 Générer un nouveau câblage coloré'):
+if st.button('🔄 Nouveau câblage'):
     indices = list(range(n))
     random.shuffle(indices)
     st.session_state.wiring = indices
     st.rerun()
 
-# 2. Palette de couleurs variées
+# 2. Palette de couleurs
 colors = [
     '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', 
-    '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf',
-    '#fb9a99', '#33a02c', '#fdbf6f', '#ff7f00', '#cab2d6',
-    '#6a3d9a', '#ffff99', '#b15928', '#a6cee3', '#b2df8a'
+    '#8c564b', '#e377c2', '#bcbd22', '#17becf', '#e7ba52'
 ]
 
-def plot_orthogonal_wiring(alphabet, wiring):
+def plot_offset_wiring(alphabet, wiring):
     fig = go.Figure()
+    offset = 0.15  # Le décalage pour éviter la superposition
 
     for i in range(len(alphabet)):
         target_index = wiring[i]
         color = colors[i % len(colors)]
         
-        # Calcul du niveau horizontal (y)
-        # On répartit les fils entre y=0.2 et y=0.8 pour laisser de la place aux lettres
+        # Niveau horizontal unique pour chaque lettre
         h_level = 0.2 + (i * (0.6 / len(alphabet)))
 
-        # --- Tracé du fil en 3 segments (Vertical -> Horizontal -> Vertical) ---
-        # 1. Descente de la lettre du haut (y=1.0) vers son palier (h_level)
-        # 2. Déplacement horizontal de l'index 'i' vers l'index 'target_index'
-        # 3. Descente du palier (h_level) vers la lettre du bas (y=0.0)
-        
-        x_coords = [i, i, target_index, target_index]
+        # --- Coordonnées avec décalage ---
+        # x_start : position de la lettre du haut - offset
+        # x_end   : position de la lettre du bas + offset
+        x_coords = [i - offset, i - offset, target_index + offset, target_index + offset]
         y_coords = [1.0, h_level, h_level, 0.0]
 
+        # Tracé du fil
         fig.add_trace(go.Scatter(
             x=x_coords,
             y=y_coords,
             mode='lines',
             line=dict(color=color, width=2),
             hoverinfo='text',
-            text=f"{alphabet[i]} → {alphabet[target_index]}",
+            text=f"Entrée {alphabet[i]} → Sortie {alphabet[target_index]}",
             showlegend=False
         ))
 
-        # --- Étiquettes des lettres ---
+        # --- Lettres (Positions fixes i) ---
         # Haut
         fig.add_trace(go.Scatter(
             x=[i], y=[1.1],
             text=[alphabet[i]],
             mode='text',
-            textfont=dict(size=14, family="Courier New Bold"),
+            textfont=dict(size=14, family="Courier New Bold", color="navy"),
             showlegend=False
         ))
         # Bas
@@ -74,7 +71,7 @@ def plot_orthogonal_wiring(alphabet, wiring):
             x=[i], y=[-0.1],
             text=[alphabet[i]],
             mode='text',
-            textfont=dict(size=14, family="Courier New Bold"),
+            textfont=dict(size=14, family="Courier New Bold", color="darkred"),
             showlegend=False
         ))
 
@@ -83,9 +80,8 @@ def plot_orthogonal_wiring(alphabet, wiring):
         margin=dict(l=20, r=20, t=20, b=20),
         xaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-1, 26]),
         yaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-0.2, 1.2]),
-        plot_bgcolor='rgba(0,0,0,0)',
-        showlegend=False
+        plot_bgcolor='white',
     )
     return fig
 
-st.plotly_chart(plot_orthogonal_wiring(alphabet, st.session_state.wiring), use_container_width=True)
+st.plotly_chart(plot_offset_wiring(alphabet, st.session_state.wiring), use_container_width=True)
