@@ -6,8 +6,18 @@ import string
 st.set_page_config(page_title="Enigma Compact", layout="wide")
 st.title("🔌 Circuit Enigma Compact")
 
-# --- Configuration du Clavier AZERTY ---
-st.subheader("⌨️ Clavier d'entrée")
+# --- Style CSS pour compacter les boutons ---
+st.markdown("""
+    <style>
+    div.stButton > button {
+        padding: 5px 0px !important;
+        font-size: 14px !important;
+        height: 2em !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+st.write("### ⌨️ Clavier")
 
 # Définition des rangées AZERTY
 rows = [
@@ -16,26 +26,26 @@ rows = [
     ["W", "X", "C", "V", "B", "N"]
 ]
 
-# Initialisation de la touche pressée dans le session_state
-if 'pressed_key' not in st.session_state:
-    st.session_state.pressed_key = None
-
-# Affichage du clavier
-for row in rows:
-    # Création de colonnes centrées pour le clavier
-    cols = st.columns(len(row))
-    for i, key in enumerate(row):
-        if cols[i].button(key, key=f"btn_{key}", use_container_width=True):
-            st.session_state.pressed_key = key
-
-# Affichage de la touche active (optionnel)
-if st.session_state.pressed_key:
-    st.markdown(f"**Touche pressée :** :blue[{st.session_state.pressed_key}]")
-else:
-    st.info("Cliquez sur une touche pour simuler l'entrée du signal.")
+# On crée un conteneur plus étroit pour réduire la taille globale
+with st.container():
+    col_pad_left, clavier_corps, col_pad_right = st.columns([1, 4, 1])
+    
+    with clavier_corps:
+        for r_idx, row in enumerate(rows):
+            # On crée toujours 10 colonnes pour garder la même largeur de touche
+            cols = st.columns(10) 
+            
+            # Décalage visuel pour les rangées 2 et 3 (optionnel)
+            start_col = 0 if r_idx == 0 else (1 if r_idx == 1 else 2)
+            
+            for i, key in enumerate(row):
+                # On place les touches dans les colonnes correspondantes
+                with cols[start_col + i]:
+                    if st.button(key, key=f"k_{key}", use_container_width=True):
+                        st.session_state.pressed_key = key
+                        st.rerun()
 
 st.divider()
-
 
 # --- Logique de dérangement ---
 def generate_derangement(n):
