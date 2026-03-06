@@ -3,7 +3,7 @@ import plotly.graph_objects as go
 import random
 import string
 
-st.set_page_config(page_title="Enigma : Flux Coloré", layout="wide")
+st.set_page_config(page_title="Enigma : Flux Équilibré", layout="wide")
 
 st.markdown("""
     <style>
@@ -30,7 +30,7 @@ if 'r1' not in st.session_state:
     st.session_state.pressed_key = None
 
 # --- Clavier AZERTY ---
-st.write("### ⌨️ Appuyez sur une touche pour voir le chemin")
+st.write("### ⌨️ Appuyez sur une touche")
 rows = [["A", "Z", "E", "R", "T", "Y", "U", "I", "O", "P"],
         ["Q", "S", "D", "F", "G", "H", "J", "K", "L", "M"],
         ["W", "X", "C", "V", "B", "N"]]
@@ -53,37 +53,37 @@ if st.session_state.pressed_key:
     idx3 = st.session_state.r3[idx2]
     path = [idx0, idx1, idx2, idx3]
 
-def plot_enigma_vivid():
+def plot_enigma_balanced():
     fig = go.Figure()
-    # Palette de couleurs pour les fils non-actifs
     colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#bcbd22', '#17becf', '#fb9a99']
     
-    levels = [2.1, 1.4, 0.7, 0]
+    levels = [2.4, 1.6, 0.8, 0] # Niveaux des bornes
     wirings = [st.session_state.r1, st.session_state.r2, st.session_state.r3]
     dx = 0.15 
 
     for stage in range(3):
         current_wiring = wirings[stage]
-        y_start, y_end = levels[stage] - 0.1, levels[stage+1] + 0.1
+        # On définit les limites de sortie et d'entrée
+        y_top_exit = levels[stage] - 0.12
+        y_bottom_entry = levels[stage+1] + 0.12
+        # Espace vertical total disponible pour le câblage
+        v_space = y_top_exit - y_bottom_entry
         
         for i in range(n):
             target = current_wiring[i]
             is_on_path = (len(path) > 0 and path[stage] == i)
             
-            # Paramètres visuels différenciés
-            if is_on_path:
-                color = "red"
-                width = 5  # Très épais
-                opacity = 1.0
-            else:
-                color = colors[i % len(colors)]
-                width = 1  # Fin
-                opacity = 0.4 # Visible mais en retrait
+            # --- Distribution verticale centrée ---
+            # On place les paliers au milieu de l'espace entre les deux bornes
+            h_level = y_bottom_entry + (v_space * 0.1) + (i * (v_space * 0.8 / n))
 
-            h_level = y_end + 0.05 + (i * (0.15 / n))
+            color = "red" if is_on_path else colors[i % len(colors)]
+            width = 5 if is_on_path else 1.2
+            opacity = 1.0 if is_on_path else 0.4
+
             fig.add_trace(go.Scatter(
                 x=[i - dx, i - dx, target + dx, target + dx],
-                y=[y_start, h_level, h_level, y_end],
+                y=[y_top_exit, h_level, h_level, y_bottom_entry],
                 mode='lines', line=dict(color=color, width=width),
                 opacity=opacity, hoverinfo='skip', showlegend=False
             ))
@@ -92,27 +92,15 @@ def plot_enigma_vivid():
     for l_idx, y_val in enumerate(levels):
         for i in range(n):
             is_active_letter = (len(path) > 0 and path[l_idx] == i)
-            # Bordure rouge si active, sinon grise
-            b_color = "red" if is_active_letter else "#888"
+            b_color = "red" if is_active_letter else "#666"
             b_width = 3 if is_active_letter else 1
             f_color = "red" if is_active_letter else "black"
 
             fig.add_trace(go.Scatter(
                 x=[i], y=[y_val], mode='markers+text',
-                marker=dict(symbol='square', size=18, color='white', line=dict(color=b_color, width=b_width)),
+                marker=dict(symbol='square', size=20, color='white', line=dict(color=b_color, width=b_width)),
                 text=alphabet[i], textfont=dict(size=10, family="Arial Black", color=f_color),
                 showlegend=False
             ))
 
     fig.update_layout(
-        height=500, margin=dict(l=10, r=10, t=10, b=10),
-        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-1, 26]),
-        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-0.2, 2.3]),
-        plot_bgcolor='white'
-    )
-    return fig
-
-st.plotly_chart(plot_enigma_vivid(), use_container_width=True)
-
-if st.session_state.pressed_key:
-    st.success(f"Signal : **{st.session_state.pressed_key}** ➔ Rotor1 ➔ Rotor2 ➔ Rotor3 ➔ **{alphabet[path[3]]}**")
