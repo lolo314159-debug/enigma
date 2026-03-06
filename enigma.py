@@ -129,4 +129,10 @@ def plot_enigma_final():
 
     fig.update_layout(
         height=550, margin=dict(l=10, r=10, t=10, b=10),
-        xaxis=dict
+        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-1, 26]),
+        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-0.3, 2.7]),
+        plot_bgcolor='white'
+    )
+    return fig
+
+st.plotly_chart(plot_enigma_final(), use_container_width=True)
