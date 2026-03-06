@@ -70,3 +70,64 @@ with col_kbd:
 
 # --- DESSIN DU GRAPHIQUE (ÉTAT ACTUEL) ---
 def plot_enigma():
+    alphabet = list(string.ascii_uppercase)
+    fig = go.Figure()
+    levels = [2.2, 1.5, 0.8, 0.1]
+    # Offsets utilisés pour l'affichage (AVANT rotation si une touche est pressée)
+    disp_offsets = [0, st.session_state.off1, st.session_state.off2, st.session_state.off3]
+    wirings = [st.session_state.r1_base, st.session_state.r2_base, st.session_state.r3_base]
+    
+    path = []
+    if st.session_state.pressed_key:
+        path = get_path_indices(st.session_state.pressed_key, st.session_state.off1, st.session_state.off2, st.session_state.off3)
+
+    for stage in range(3):
+        w = wirings[stage]
+        off = disp_offsets[stage+1]
+        y_top, y_bot = levels[stage] - 0.15, levels[stage+1] + 0.15
+        v_gap = y_top - y_bot
+        for i in range(26):
+            # Le fil est actif si sa position d'entrée correspond au chemin
+            is_active = (len(path) > 0 and (path[stage] + off) % 26 == i)
+            h_y = y_bot + (v_gap * 0.1) + (i * (v_gap * 0.8 / 26))
+            fig.add_trace(go.Scatter(
+                x=[i - 0.18, i - 0.18, w[i] + 0.18, w[i] + 0.18], y=[y_top, h_y, h_y, y_bot],
+                mode='lines', line=dict(color="red" if is_active else "#f0f0f0", width=5 if is_active else 1),
+                opacity=1.0 if is_active else 0.4, showlegend=False, hoverinfo='skip'
+            ))
+
+    for l_idx, y_val in enumerate(levels):
+        off = disp_offsets[l_idx]
+        for i in range(26):
+            active = (len(path) > 0 and path[l_idx] == i)
+            fig.add_trace(go.Scatter(
+                x=[i], y=[y_val], mode='markers+text',
+                marker=dict(symbol='square', size=18, color='white', 
+                            line=dict(color="red" if active else "#ccc", width=2 if active else 1)),
+                text=alphabet[(i - off) % 26], 
+                textfont=dict(size=9, color="red" if active else "black", family="Arial Black"),
+                showlegend=False
+            ))
+
+    fig.update_layout(height=500, margin=dict(l=10, r=10, t=10, b=10), plot_bgcolor='white',
+                      xaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-1, 26]),
+                      yaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-0.2, 2.5]))
+    return fig
+
+# Affichage du graphique immédiat
+st.plotly_chart(plot_enigma(), use_container_width=True)
+
+# --- SÉQUENCE POST-AFFICHAGE ---
+if st.session_state.pressed_key:
+    # 1. Le chemin est affiché, on attend le délai choisi
+    if delay > 0:
+        time.sleep(delay)
+    
+    # 2. SEULEMENT APRÈS le délai, on effectue la rotation mécanique
+    st.session_state.off1 = (st.session_state.off1 + 1) % 26
+    if st.session_state.off1 == 0:
+        st.session_state.off2 = (st.session_state.off2 + 1) % 26
+    
+    # 3. On efface la touche pressée (ce qui enlèvera le rouge au prochain rerun)
+    st.session_state.pressed_key = None 
+    st.rerun()
