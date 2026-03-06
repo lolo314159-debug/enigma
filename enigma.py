@@ -18,14 +18,14 @@ if 'r1_base' not in st.session_state:
     st.session_state.pressed_key = None
     st.session_state.text_in, st.session_state.text_out = "", ""
 
-st.set_page_config(page_title="Enigma : Analyse Temporelle", layout="wide")
+st.set_page_config(page_title="Enigma : Observation & Reset", layout="wide")
 
 # --- Interface de contrôle ---
 st.title("📟 Enigma : Observation du Signal")
 
-# Ajout du curseur de délai
+# Configuration du délai dans la barre latérale
 delay = st.sidebar.slider("Délai d'observation (secondes)", 0, 10, 2) 
-st.sidebar.info("Le chemin reste visible pendant ce délai avant que le rotor ne tourne pour la lettre suivante.")
+st.sidebar.info("Le chemin reste visible avant que le rotor ne tourne.")
 
 col_log, col_kbd = st.columns([1, 1])
 
@@ -44,10 +44,26 @@ def get_path_indices(key_char, off1, off2, off3):
 
 with col_log:
     st.write(f"**Positions :** `{string.ascii_uppercase[st.session_state.off1]}` | `{string.ascii_uppercase[st.session_state.off2]}` | `{string.ascii_uppercase[st.session_state.off3]}`")
+    
+    # Zone d'affichage du texte
     area_in = st.empty()
     area_out = st.empty()
     area_in.code(st.session_state.text_in if st.session_state.text_in else " ")
     area_out.code(st.session_state.text_out if st.session_state.text_out else " ")
+
+    # RETOUR DES BOUTONS DE RÉINITIALISATION
+    c1, c2 = st.columns(2)
+    if c1.button("⏪ Remettre à 'A'", use_container_width=True):
+        st.session_state.off1, st.session_state.off2, st.session_state.off3 = 0, 0, 0
+        st.session_state.text_in, st.session_state.text_out = "", ""
+        st.session_state.pressed_key = None
+        st.rerun()
+        
+    if c2.button("🔄 Nouveau Câblage", use_container_width=True):
+        # On vide tout le session_state pour forcer la regénération
+        for key in list(st.session_state.keys()):
+            del st.session_state[key]
+        st.rerun()
 
 # --- CLAVIER ---
 with col_kbd:
@@ -58,34 +74,29 @@ with col_kbd:
         cols = st.columns(10)
         for i, key in enumerate(row):
             if cols[i].button(key, key=f"k_{key}", use_container_width=True):
-                # A. On définit la touche pressée pour l'affichage immédiat
                 st.session_state.pressed_key = key
                 st.session_state.text_in += key
                 
-                # B. Calcul du résultat avec les positions ACTUELLES
+                # Calcul immédiat
                 p = get_path_indices(key, st.session_state.off1, st.session_state.off2, st.session_state.off3)
                 st.session_state.text_out += string.ascii_uppercase[p[3]]
                 
-                # C. Mise à jour visuelle immédiate du texte
+                # Mise à jour des zones de texte
                 area_in.code(st.session_state.text_in)
                 area_out.code(st.session_state.text_out)
-                
-                # D. On force le rafraîchissement pour montrer le chemin AVANT le délai
                 st.rerun()
 
 # --- GESTION DU DÉLAI ET ROTATION ---
 if st.session_state.pressed_key:
-    # On affiche le schéma (voir fonction plus bas)
-    # Puis on attend
     if delay > 0:
         time.sleep(delay)
     
-    # E. APRÈS le délai, on fait tourner le rotor et on efface le chemin
+    # Rotation après observation
     st.session_state.off1 = (st.session_state.off1 + 1) % 26
     if st.session_state.off1 == 0:
         st.session_state.off2 = (st.session_state.off2 + 1) % 26
     
-    st.session_state.pressed_key = None # Efface le chemin
+    st.session_state.pressed_key = None 
     st.rerun()
 
 # --- FONCTION DE DESSIN ---
@@ -93,7 +104,8 @@ def plot_enigma():
     alphabet = list(string.ascii_uppercase)
     fig = go.Figure()
     levels = [2.2, 1.5, 0.8, 0.1]
-    offsets = [0, st.session_state.off1, st.session_state.off2, st.session_state.off3]
+    # Les offsets pour l'affichage de l'alphabet glissant
+    disp_offsets = [0, st.session_state.off1, st.session_state.off2, st.session_state.off3]
     wirings = [st.session_state.r1_base, st.session_state.r2_base, st.session_state.r3_base]
     
     path = []
@@ -102,11 +114,10 @@ def plot_enigma():
 
     for stage in range(3):
         w = wirings[stage]
-        off = offsets[stage+1]
+        off = disp_offsets[stage+1]
         y_top, y_bot = levels[stage] - 0.15, levels[stage+1] + 0.15
         v_gap = y_top - y_bot
         for i in range(26):
-            # Un fil est actif si sa position physique d'entrée correspond au (chemin + offset)
             is_active = (len(path) > 0 and (path[stage] + off) % 26 == i)
             h_y = y_bot + (v_gap * 0.1) + (i * (v_gap * 0.8 / 26))
             fig.add_trace(go.Scatter(
@@ -116,19 +127,21 @@ def plot_enigma():
             ))
 
     for l_idx, y_val in enumerate(levels):
-        off = offsets[l_idx]
+        off = disp_offsets[l_idx]
         for i in range(26):
             active = (len(path) > 0 and path[l_idx] == i)
             fig.add_trace(go.Scatter(
                 x=[i], y=[y_val], mode='markers+text',
-                marker=dict(symbol='square', size=18, color='white', line=dict(color="red" if active else "#999", width=2 if active else 1)),
-                text=alphabet[(i - off) % 26], textfont=dict(size=9, color="red" if active else "black"),
+                marker=dict(symbol='square', size=18, color='white', 
+                            line=dict(color="red" if active else "#999", width=2 if active else 1)),
+                text=alphabet[(i - off) % 26], 
+                textfont=dict(size=9, color="red" if active else "black", family="Arial Black"),
                 showlegend=False
             ))
 
     fig.update_layout(height=500, margin=dict(l=10, r=10, t=10, b=10), plot_bgcolor='white',
-                      xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-                      yaxis=dict(showgrid=False, zeroline=False, showticklabels=False))
+                      xaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-1, 26]),
+                      yaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-0.2, 2.5]))
     return fig
 
 st.plotly_chart(plot_enigma(), use_container_width=True)
