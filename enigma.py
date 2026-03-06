@@ -3,76 +3,89 @@ import plotly.graph_objects as go
 import random
 import string
 
-# Configuration de la page
-st.set_page_config(page_title="Rotor Enigma - Connexions", layout="wide")
+st.set_page_config(page_title="Câblage Enigma Orthogonal", layout="wide")
 
-st.title("🧩 Visualisation des croisements d'un Rotor")
-st.write("Les deux alphabets sont fixes (A-Z). Les lignes représentent le câblage interne aléatoire.")
+st.title("🔌 Câblage Interne du Rotor")
+st.write("Visualisation par paliers : chaque lettre possède son propre 'étage' horizontal pour éviter les collisions visuelles.")
 
-# 1. Préparation de l'alphabet (fixe)
+# 1. Initialisation de l'alphabet et de la permutation
 alphabet = list(string.ascii_uppercase)
 n = len(alphabet)
 
-# 2. Gestion de la permutation (le "câblage")
 if 'wiring' not in st.session_state:
-    # On crée une liste d'index de 0 à 25, puis on la mélange
     indices = list(range(n))
     random.shuffle(indices)
     st.session_state.wiring = indices
 
-# Bouton pour recâbler le rotor
-if st.button('🔄 Mélanger le câblage (Croisements)'):
+if st.button('🔄 Générer un nouveau câblage coloré'):
     indices = list(range(n))
     random.shuffle(indices)
     st.session_state.wiring = indices
     st.rerun()
 
-# 3. Fonction pour tracer les connexions
-def plot_enigma_wiring(alphabet, wiring):
+# 2. Palette de couleurs variées
+colors = [
+    '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', 
+    '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf',
+    '#fb9a99', '#33a02c', '#fdbf6f', '#ff7f00', '#cab2d6',
+    '#6a3d9a', '#ffff99', '#b15928', '#a6cee3', '#b2df8a'
+]
+
+def plot_orthogonal_wiring(alphabet, wiring):
     fig = go.Figure()
 
     for i in range(len(alphabet)):
-        target_index = wiring[i] # Où la lettre à l'index 'i' atterrit-elle ?
+        target_index = wiring[i]
+        color = colors[i % len(colors)]
         
-        # --- Tracé de la ligne (Croisement) ---
-        # x_start = i (position de la lettre d'entrée)
-        # x_end = target_index (position de la lettre de sortie)
+        # Calcul du niveau horizontal (y)
+        # On répartit les fils entre y=0.2 et y=0.8 pour laisser de la place aux lettres
+        h_level = 0.2 + (i * (0.6 / len(alphabet)))
+
+        # --- Tracé du fil en 3 segments (Vertical -> Horizontal -> Vertical) ---
+        # 1. Descente de la lettre du haut (y=1.0) vers son palier (h_level)
+        # 2. Déplacement horizontal de l'index 'i' vers l'index 'target_index'
+        # 3. Descente du palier (h_level) vers la lettre du bas (y=0.0)
+        
+        x_coords = [i, i, target_index, target_index]
+        y_coords = [1.0, h_level, h_level, 0.0]
+
         fig.add_trace(go.Scatter(
-            x=[i, target_index], 
-            y=[1, 0],
+            x=x_coords,
+            y=y_coords,
             mode='lines',
-            line=dict(color='rgba(20, 100, 200, 0.3)', width=1.5),
-            hoverinfo='none',
+            line=dict(color=color, width=2),
+            hoverinfo='text',
+            text=f"{alphabet[i]} → {alphabet[target_index]}",
             showlegend=False
         ))
-        
-        # --- Lettres fixes en haut (Entrée) ---
+
+        # --- Étiquettes des lettres ---
+        # Haut
         fig.add_trace(go.Scatter(
             x=[i], y=[1.1],
             text=[alphabet[i]],
             mode='text',
-            textfont=dict(size=14, color="black", family="Courier New Bold"),
+            textfont=dict(size=14, family="Courier New Bold"),
             showlegend=False
         ))
-
-        # --- Lettres fixes en bas (Sortie) ---
+        # Bas
         fig.add_trace(go.Scatter(
             x=[i], y=[-0.1],
             text=[alphabet[i]],
             mode='text',
-            textfont=dict(size=14, color="black", family="Courier New Bold"),
+            textfont=dict(size=14, family="Courier New Bold"),
             showlegend=False
         ))
 
     fig.update_layout(
-        height=500,
+        height=600,
         margin=dict(l=20, r=20, t=20, b=20),
         xaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-1, 26]),
-        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-0.3, 1.3]),
-        plot_bgcolor='white',
+        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-0.2, 1.2]),
+        plot_bgcolor='rgba(0,0,0,0)',
         showlegend=False
     )
     return fig
 
-# Affichage
-st.plotly_chart(plot_enigma_wiring(alphabet, st.session_state.wiring), use_container_width=True)
+st.plotly_chart(plot_orthogonal_wiring(alphabet, st.session_state.wiring), use_container_width=True)
