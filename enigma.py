@@ -19,40 +19,30 @@ if 'r1_base' not in st.session_state:
     st.session_state.text_in, st.session_state.text_out = "", ""
     st.session_state.pressed_key = None
 
-st.set_page_config(page_title="Enigma : Correction Liaison Rotors", layout="wide")
+st.set_page_config(page_title="Enigma : Correction Trajet Continu", layout="wide")
 alphabet = list(string.ascii_uppercase)
 
-# --- 2. LOGIQUE DE SIGNAL (AVEC TOUS LES POINTS DE CONTACT) ---
+# --- 2. LOGIQUE DE SIGNAL (TOUS LES POINTS DE CONTACT) ---
 def get_enigma_path(key_char, o1, o2, o3):
-    # Entrée R1
-    idx0 = (alphabet.index(key_char) + o1) % 26
-    # Sortie R1
-    out1 = st.session_state.r1_base[idx0]
-    # Entrée R2 (Décalage relatif)
-    idx1 = (out1 + (o2 - o1)) % 26
-    # Sortie R2
-    out2 = st.session_state.r2_base[idx1]
-    # Entrée R3
-    idx2 = (out2 + (o3 - o2)) % 26
-    # Sortie R3
-    out3 = st.session_state.r3_base[idx2]
-    # Sortie Finale (vers alphabet fixe)
-    idx3 = (out3 - o3) % 26
-    
-    # Retourne les 7 points nécessaires pour tracer le chemin continu
+    idx0 = (alphabet.index(key_char) + o1) % 26 # Entrée R1
+    out1 = st.session_state.r1_base[idx0]        # Sortie R1
+    idx1 = (out1 + (o2 - o1)) % 26               # Transfert -> Entrée R2
+    out2 = st.session_state.r2_base[idx1]        # Sortie R2
+    idx2 = (out2 + (o3 - o2)) % 26               # Transfert -> Entrée R3
+    out3 = st.session_state.r3_base[idx2]        # Sortie R3
+    idx3 = (out3 - o3) % 26                      # Transfert -> Sortie Finale
     return [idx0, out1, idx1, out2, idx2, out3, idx3]
 
 # --- 3. INTERFACE ---
-st.title("📟 Enigma : Correction du câblage et Timer")
-
-# Retour du curseur Timer dans la barre latérale
-delay = st.sidebar.slider("Délai d'affichage du chemin (sec)", 0.0, 5.0, 2.0, step=0.5)
+st.title("📟 Enigma : Correction du trajet R2-R3")
+# Rétablissement du curseur Timer
+delay = st.sidebar.slider("Délai d'observation (sec)", 0.0, 5.0, 2.0, step=0.5)
 
 col_log, col_kbd = st.columns([1, 1])
 with col_log:
-    st.write(f"**Rotors :** `{alphabet[st.session_state.off1]}-{alphabet[st.session_state.off2]}-{alphabet[st.session_state.off3]}`")
-    st.info(f"**Entrée :** `{st.session_state.get('text_in', '')}`")
-    st.success(f"**Sortie :** `{st.session_state.get('text_out', '')}`")
+    st.write(f"**Positions :** `{alphabet[st.session_state.off1]}-{alphabet[st.session_state.off2]}-{alphabet[st.session_state.off3]}`")
+    st.info(f"**Clair :** `{st.session_state.get('text_in', '')}`")
+    st.success(f"**Chiffré :** `{st.session_state.get('text_out', '')}`")
 
     c1, c2 = st.columns(2)
     if c1.button("⏪ Reset Rotors & Texte", use_container_width=True):
@@ -64,7 +54,7 @@ with col_log:
         st.session_state.r1_base = generate_derangement()
         st.session_state.r2_base = generate_derangement()
         st.session_state.r3_base = generate_derangement()
-        st.toast("Câblage interne modifié")
+        st.toast("Câblage interne modifié (indépendamment du texte)")
 
 with col_kbd:
     for row in [["A","Z","E","R","T"], ["Q","S","D","F","G"], ["W","X","C","V","B"]]:
@@ -76,25 +66,23 @@ with col_kbd:
                 p = get_enigma_path(key, st.session_state.off1, st.session_state.off2, st.session_state.off3)
                 st.session_state.text_out += alphabet[p[6]]
 
-# --- 4. DESSIN DU CHEMIN CONTINU ---
+# --- 4. DESSIN ---
 def draw_viz():
     fig = go.Figure()
     levels = [2.2, 1.5, 0.8, 0.1]
     offs = [st.session_state.off1, st.session_state.off2, st.session_state.off3, 0]
+    wirings = [st.session_state.r1_base, st.session_state.r2_base, st.session_state.r3_base]
     
     path = None
     if st.session_state.pressed_key:
         path = get_enigma_path(st.session_state.pressed_key, st.session_state.off1, st.session_state.off2, st.session_state.off3)
 
-    # Dessin des rotors et des fils internes
-    wirings = [st.session_state.r1_base, st.session_state.r2_base, st.session_state.r3_base]
     for s in range(3):
         w = wirings[s]
         y_top, y_bot = levels[s] - 0.15, levels[s+1] + 0.15
         
-        # Index d'entrée du signal pour ce rotor spécifique
+        # 1. Fils internes (Verticaux/Diagonaux)
         active_in = path[s*2] if path else -1
-        
         for i in range(26):
             is_active = (i == active_in)
             fig.add_trace(go.Scatter(
@@ -102,22 +90,18 @@ def draw_viz():
                 mode='lines', line=dict(color="red" if is_active else "#eee", width=4 if is_active else 1),
                 opacity=1.0 if is_active else 0.2, showlegend=False
             ))
-            
-        # NOUVEAU : Dessin du "Pont" horizontal entre les rotors
-        if path and s < 2: # Entre R1/R2 et R2/R3
+        
+        # 2. PONT HORIZONTAL (Liaison entre les rotors)
+        if path:
+            # Entre Rotor S et Rotor S+1
+            start_x = path[s*2 + 1] # Sortie du rotor actuel
+            end_x = path[s*2 + 2]   # Entrée du rotor suivant
             fig.add_trace(go.Scatter(
-                x=[path[s*2 + 1], path[s*2 + 2]], y=[y_bot, y_bot],
-                mode='lines', line=dict(color="red", width=4),
-                showlegend=False
-            ))
-        elif path and s == 2: # Pont final entre R3 et Sortie
-            fig.add_trace(go.Scatter(
-                x=[path[5], path[6]], y=[y_bot, y_bot],
-                mode='lines', line=dict(color="red", width=4),
-                showlegend=False
+                x=[start_x, end_x], y=[y_bot, y_bot],
+                mode='lines', line=dict(color="red", width=4), showlegend=False
             ))
 
-    # Dessin des lettres
+    # 3. Blocs de lettres
     for l_idx, y_val in enumerate(levels):
         for i in range(26):
             # Une case est rouge si elle est un point d'entrée OU de sortie sur cette ligne
@@ -143,17 +127,13 @@ def draw_viz():
 
 st.plotly_chart(draw_viz(), use_container_width=True)
 
-# --- 5. FIN DE CYCLE (AVEC TIMER) ---
+# --- 5. FIN DE CYCLE ---
 if st.session_state.pressed_key:
-    if delay > 0:
-        time.sleep(delay)
-    
-    # Rotation cascade
+    if delay > 0: time.sleep(delay)
     st.session_state.off1 = (st.session_state.off1 + 1) % 26
     if st.session_state.off1 == 0:
         st.session_state.off2 = (st.session_state.off2 + 1) % 26
         if st.session_state.off2 == 0:
             st.session_state.off3 = (st.session_state.off3 + 1) % 26
-            
     st.session_state.pressed_key = None
     st.rerun()
