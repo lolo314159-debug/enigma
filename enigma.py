@@ -19,114 +19,95 @@ if 'r1_base' not in st.session_state:
     st.session_state.text_in, st.session_state.text_out = "", ""
     st.session_state.pressed_key = None
 
-st.set_page_config(page_title="Enigma : Physique des Contacts", layout="wide")
+st.set_page_config(page_title="Enigma : Modèle Physique Correct", layout="wide")
 alphabet = list(string.ascii_uppercase)
 
-# --- 2. LOGIQUE DE SIGNAL (CONTACTS VERTICAUX ENTRE ROTORS) ---
+# --- 2. LOGIQUE ENIGMA (Modèle : r(offset, lettre) -> lettre) ---
+def get_rotor_output(base_wiring, offset, char_idx):
+    # Entrée dans le rotor décalé
+    shift_in = (char_idx + offset) % 26
+    # Passage dans le câblage interne
+    out_raw = base_wiring[shift_in]
+    # Sortie du rotor (on revient à l'index de la lettre résultante)
+    return (out_raw - offset) % 26
+
 def get_enigma_path(key_char, o1, o2, o3):
-    # 1. Entrée Clavier -> Position physique Rotor 1
-    k_idx = alphabet.index(key_char)
-    p0 = (k_idx + o1) % 26  # Point d'entrée physique R1
-    
-    # 2. Traversée Rotor 1 (Sortie physique = Entrée physique Rotor 2)
-    p1 = st.session_state.r1_base[p0] 
-    
-    # 3. Traversée Rotor 2 (Sortie physique = Entrée physique Rotor 3)
-    p2 = st.session_state.r2_base[p1]
-    
-    # 4. Traversée Rotor 3 (Sortie physique finale)
-    p3 = st.session_state.r3_base[p2]
-    
-    # 5. Conversion Sortie physique -> Lettre (Stator de sortie fixe)
-    # On compense l'offset du dernier rotor pour revenir au cadre fixe
-    out_idx = (p3 - o1) % 26 
-    
-    return [k_idx, p0, p1, p2, p3, out_idx]
+    idx0 = alphabet.index(key_char)
+    # Le signal traverse chaque rotor et ressort sur une lettre précise
+    idx1 = get_rotor_output(st.session_state.r1_base, o1, idx0)
+    idx2 = get_rotor_output(st.session_state.r2_base, o2, idx1)
+    idx3 = get_rotor_output(st.session_state.r3_base, o3, idx2)
+    return [idx0, idx1, idx2, idx3]
 
 # --- 3. INTERFACE ---
-st.title("📟 Enigma : Correction des Contacts Verticaux")
+st.title("📟 Enigma : Trajet Continu (Physique Réelle)")
 
-delay = st.sidebar.slider("Délai d'observation (sec)", 0.0, 5.0, 1.5, step=0.5)
+delay = st.sidebar.slider("Délai d'observation (sec)", 0.0, 3.0, 1.0, step=0.5)
 
-col_log, col_kbd = st.columns([1, 1.2])
+col_log, col_kbd = st.columns([1, 1.3])
 with col_log:
     st.write(f"**Positions :** `{alphabet[st.session_state.off1]}-{alphabet[st.session_state.off2]}-{alphabet[st.session_state.off3]}`")
-    st.info(f"**Clair :** `{st.session_state.text_in}`")
-    st.success(f"**Chiffré :** `{st.session_state.text_out}`")
+    st.info(f"**Texte clair :** `{st.session_state.text_in}`")
+    st.success(f"**Texte chiffré :** `{st.session_state.text_out}`")
     if st.button("⏪ Reset Machine", use_container_width=True):
         st.session_state.off1, st.session_state.off2, st.session_state.off3 = 0, 0, 0
-        st.session_state.text_in, st.session_state.text_out = "", ""
+        st.session_state.text_in, st.session_state.text_out = "" , ""
         st.session_state.pressed_key = None
         st.rerun()
 
 with col_kbd:
-    # Clavier AZERTY complet
-    rows = [["A","Z","E","R","T","Y","U","I","O","P"], ["Q","S","D","F","G","H","J","K","L","M"], ["W","X","C","V","B","N"]]
-    for row in rows:
+    # Clavier AZERTY 26 touches
+    for row in [["A","Z","E","R","T","Y","U","I","O","P"], 
+                ["Q","S","D","F","G","H","J","K","L","M"], 
+                ["W","X","C","V","B","N"]]:
         cols = st.columns(len(row))
         for i, key in enumerate(row):
-            if cols[i].button(key, key=f"key_{key}", use_container_width=True):
+            if cols[i].button(key, key=f"k_{key}", use_container_width=True):
                 st.session_state.pressed_key = key
                 st.session_state.text_in += key
                 p = get_enigma_path(key, st.session_state.off1, st.session_state.off2, st.session_state.off3)
-                st.session_state.text_out += alphabet[p[5]]
+                st.session_state.text_out += alphabet[p[3]]
 
 # --- 4. DESSIN ---
 def draw_viz():
     fig = go.Figure()
-    levels = [2.2, 1.5, 0.8, 0.1, -0.6] # 5 niveaux (Clavier, R1, R2, R3, Sortie)
-    offs = [0, st.session_state.off1, st.session_state.off2, st.session_state.off3, 0]
-    wirings = [st.session_state.r1_base, st.session_state.r2_base, st.session_state.r3_base]
-    
+    levels = [2.2, 1.5, 0.8, 0.1] # Ligne 1 (Clavier), 2 (Sortie R1), 3 (Sortie R2), 4 (Sortie R3)
     path = get_enigma_path(st.session_state.pressed_key, st.session_state.off1, st.session_state.off2, st.session_state.off3) if st.session_state.pressed_key else None
 
-    # Dessin des rotors
-    for s in range(3):
-        w = wirings[s]
-        y_top, y_bot = levels[s+1] + 0.1, levels[s+2] - 0.1
-        
-        # Signal interne au rotor
-        active_in = path[s+1] if path else -1
-        active_out = path[s+2] if path else -1
-        
-        for i in range(26):
-            is_active = (i == active_in)
+    # Dessin des fils (uniquement les fils actifs en rouge pour la clarté)
+    if path:
+        for s in range(3):
+            # Le fil va de la lettre sur la ligne s à la lettre sur la ligne s+1
             fig.add_trace(go.Scatter(
-                x=[i, wirings[s][i]], y=[levels[s+1], levels[s+2]],
-                mode='lines', line=dict(color="red" if is_active else "#eee", width=4 if is_active else 1),
-                opacity=1.0 if is_active else 0.1, showlegend=False
+                x=[path[s], path[s+1]], y=[levels[s], levels[s+1]],
+                mode='lines', line=dict(color="red", width=4), showlegend=False
             ))
 
-    # Jonctions (Clavier -> R1 et R3 -> Sortie)
-    if path:
-        # Clavier (p[0]) vers Entrée R1 (p[1])
-        fig.add_trace(go.Scatter(x=[path[0], path[1]], y=[levels[0], levels[1]], mode='lines', line=dict(color="red", width=4), showlegend=False))
-        # Sortie R3 (p[4]) vers Lampe (p[5])
-        fig.add_trace(go.Scatter(x=[path[4], path[5]], y=[levels[4], levels[5]], mode='lines', line=dict(color="red", width=4), showlegend=False))
-
-    # Dessin des lettres et cases
+    # Dessin des boîtes de lettres
     for l_idx, y_val in enumerate(levels):
-        current_off = offs[l_idx]
         for i in range(26):
-            is_red = (path and path[l_idx] == i)
+            is_active = (path and path[l_idx] == i)
             fig.add_trace(go.Scatter(
                 x=[i], y=[y_val], mode='markers+text',
-                marker=dict(symbol='square', size=18, color='white', line=dict(color="red" if is_red else "#ccc", width=2 if is_red else 1)),
-                text=alphabet[(i - current_off) % 26],
-                textfont=dict(size=9, color="red" if is_red else "black"),
+                marker=dict(symbol='square', size=20, color='white', 
+                            line=dict(color="red" if is_active else "#ddd", width=2 if is_active else 1)),
+                text=alphabet[i],
+                textfont=dict(size=10, color="red" if is_active else "black"),
                 showlegend=False
             ))
 
-    fig.update_layout(height=600, margin=dict(l=10, r=10, t=10, b=10), plot_bgcolor='white',
+    fig.update_layout(height=500, margin=dict(l=10, r=10, t=10, b=10), plot_bgcolor='white',
                       xaxis=dict(showgrid=False, range=[-0.5, 25.5], showticklabels=False),
                       yaxis=dict(showgrid=False, showticklabels=False))
     return fig
 
 st.plotly_chart(draw_viz(), use_container_width=True)
 
-# --- 5. FIN DE CYCLE ---
+# --- 5. ROTATION ---
 if st.session_state.pressed_key:
     if delay > 0: time.sleep(delay)
     st.session_state.off1 = (st.session_state.off1 + 1) % 26
+    if st.session_state.off1 == 0:
+        st.session_state.off2 = (st.session_state.off2 + 1) % 26
     st.session_state.pressed_key = None
     st.rerun()
